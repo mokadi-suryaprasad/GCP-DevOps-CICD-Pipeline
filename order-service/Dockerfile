@@ -1,7 +1,18 @@
+# Use Python image
 FROM python:3.9-slim
+
+# Set the working directory
 WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
+
+# Install dependencies
+COPY requirements.txt /app/
+RUN pip install -r requirements.txt
+
+# Copy the application files
+COPY . /app/
+
+# Expose the port that your Python app listens on
+EXPOSE 8082
+
+# Run the Python application
+CMD ["python", "app.py"]

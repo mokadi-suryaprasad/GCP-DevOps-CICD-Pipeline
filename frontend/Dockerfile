@@ -1,14 +1,24 @@
-# Stage 1: Build React with Webpack
-FROM node:18-alpine AS build
+# Example Dockerfile for React app
+
+# Use a Node.js image for building the React app
+FROM node:18 as build
+
+# Set the working directory
 WORKDIR /app
-COPY package*.json ./
+
+# Install dependencies
+COPY package.json package-lock.json ./
 RUN npm install
-COPY . .
+
+# Copy the source code and build the React app
+COPY . ./
 RUN npm run build
 
-# Stage 2: Serve with Nginx
-FROM nginx:stable-alpine
+# Use Nginx to serve the built React app
+FROM nginx:alpine
+
+# Copy the build files from the previous step into Nginx
 COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
