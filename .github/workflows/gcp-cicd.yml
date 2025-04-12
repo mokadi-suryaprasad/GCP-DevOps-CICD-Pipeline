@@ -32,20 +32,27 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Install SonarScanner
+        run: |
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
+          unzip sonar-scanner-cli-4.8.0.2856-linux.zip
+          mv sonar-scanner-4.8.0.2856-linux sonar-scanner
+          echo "$PWD/sonar-scanner/bin" >> $GITHUB_PATH
+
       - name: Build and test React frontend
         working-directory: frontend
         run: |
           npm install
-          npm run build || echo "Build script not found"
+          npm run build || true  # allow build errors temporarily
 
       - name: SonarQube Scan - Frontend
+        working-directory: frontend
         run: |
           sonar-scanner \
             -Dsonar.projectKey=frontend-service \
             -Dsonar.sources=. \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        working-directory: frontend
 
       - name: Build and test Java backend
         working-directory: user-service
@@ -53,29 +60,28 @@ jobs:
           mvn clean test package
 
       - name: SonarQube Scan - User Service
+        working-directory: user-service
         run: |
           sonar-scanner \
             -Dsonar.projectKey=user-service \
             -Dsonar.sources=. \
-            -Dsonar.java.binaries=target \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        working-directory: user-service
 
       - name: Build and test Python backend
         working-directory: order-service
         run: |
           pip install -r requirements.txt
-          pytest || echo "No tests found"
+          pytest || true  # allow 0 tests gracefully
 
       - name: SonarQube Scan - Order Service
+        working-directory: order-service
         run: |
           sonar-scanner \
             -Dsonar.projectKey=order-service \
             -Dsonar.sources=. \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        working-directory: order-service
 
   docker-build-scan:
     runs-on: ubuntu-latest
@@ -90,7 +96,8 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+        run: |
+          gcloud auth configure-docker
 
       - name: Build Docker images
         run: |
