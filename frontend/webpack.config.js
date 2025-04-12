@@ -4,7 +4,8 @@ module.exports = {
   entry: "./src/index.js",
   output: {
     path: path.resolve(__dirname, "build"),
-    filename: "bundle.js"
+    filename: "bundle.js",
+    publicPath: "/"
   },
   module: {
     rules: [
@@ -17,12 +18,5 @@ module.exports = {
   },
   resolve: {
     extensions: [".js", ".jsx"]
-  },
-  devServer: {
-    static: {
-      directory: path.join(__dirname, "public")
-    },
-    port: 3000,
-    historyApiFallback: true
   }
 };
