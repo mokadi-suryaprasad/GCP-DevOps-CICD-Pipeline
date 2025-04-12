@@ -19,9 +19,9 @@ function App() {
     <div>
       <h1>Frontend React App</h1>
       <h2>Users:</h2>
-      <ul>{users.map(u => <li key={u}>{u}</li>)}</ul>
+      <ul>{users.map((u, i) => <li key={i}>{u}</li>)}</ul>
       <h2>Orders:</h2>
-      <ul>{orders.map(o => <li key={o}>{o}</li>)}</ul>
+      <ul>{orders.map((o, i) => <li key={i}>{o}</li>)}</ul>
     </div>
   );
 }
