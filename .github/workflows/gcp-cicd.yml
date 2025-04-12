@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  VERSION: ${{ github.run_number }}
+  VERSION:  ${{ github.sha }}
   GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}
 
 jobs:
