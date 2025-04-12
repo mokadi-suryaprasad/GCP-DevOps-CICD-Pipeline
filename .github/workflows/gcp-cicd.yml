@@ -7,7 +7,7 @@ on:
 
 env:
   VERSION: ${{ github.run_number }}
-  GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}.gcr.io/${{ secrets.GCP_PROJECT_ID }}
+  GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/frontend-service
 
 jobs:
   build-test-analyze:
