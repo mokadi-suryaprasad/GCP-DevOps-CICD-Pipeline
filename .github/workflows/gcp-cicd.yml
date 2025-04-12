@@ -7,7 +7,7 @@ on:
 
 env:
   VERSION: ${{ github.run_number }}
-  GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}/${{ secrets.GCP_PROJECT_ID }}
+  GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}/${{ secrets.GCP_PROJECT_ID }}.gcr.io
 
 jobs:
   build-test-analyze:
@@ -89,6 +89,10 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
+
+      - name: Decrypt GCP Service Account Key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcp-service-account.json
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
