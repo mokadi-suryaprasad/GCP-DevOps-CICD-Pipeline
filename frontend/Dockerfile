@@ -3,13 +3,12 @@ FROM node:18 AS build
 
 WORKDIR /app
 
-# Only copy package.json and package-lock.json if package-lock.json exists
+# Only copy package.json
 COPY package.json ./ 
-COPY package-lock.json ./  # It's important to copy the lock file if you have it
 
 RUN npm install
 
-COPY . ./
+COPY . ./ 
 RUN npm run build
 
 # Stage 2: Serve with Nginx
