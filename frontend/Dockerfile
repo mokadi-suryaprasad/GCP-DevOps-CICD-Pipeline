@@ -3,9 +3,9 @@ FROM node:18 AS build
 
 WORKDIR /app
 
-# Only copy package.json if package-lock.json doesn't exist
-COPY package.json ./
-# COPY package-lock.json ./   # Uncomment this if you do have a lockfile
+# Copy package.json and package-lock.json for efficient caching
+COPY package.json ./ 
+COPY package-lock.json ./  # It's important to copy the lock file if you have it
 
 RUN npm install
 
@@ -15,8 +15,10 @@ RUN npm run build
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
 
+# Copy the React build to Nginx's default directory
 COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 80
 
+# Command to run Nginx
 CMD ["nginx", "-g", "daemon off;"]
