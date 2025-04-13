@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copy the Java application JAR file from the host to the container
-COPY target/user-service.jar /app/user-service.jar
+COPY target/user-service-1.0-SNAPSHOT.jar /app/user-service.jar
 
 # Expose the port the application will run on
 EXPOSE 8081
