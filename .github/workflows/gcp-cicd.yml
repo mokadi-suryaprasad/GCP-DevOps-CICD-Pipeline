@@ -7,9 +7,9 @@ on:
 
 env:
   VERSION: latest
-  FRONTEND_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/frontend-service
-  ORDER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/order-service
-  USER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/user-service
+  FRONTEND_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/frontend-service/frontend-service
+  ORDER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/order-service/order-service
+  USER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/user-service/user-service
 
 jobs:
   build-test-analyze:
