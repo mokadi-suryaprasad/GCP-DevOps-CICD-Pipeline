@@ -85,6 +85,13 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
+      # Upload frontend build artifact to GitHub Actions
+      - name: Upload frontend build as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/build/
+
   docker-build-scan:
     runs-on: ubuntu-latest
     needs: build-test-analyze
@@ -144,7 +151,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Check if the frontend build exists before upload
+      # Download frontend build artifact
+      - name: Download frontend build
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/build
+
+      # Check if frontend build exists after download
       - name: Check if frontend build exists
         run: |
           if [ ! -d "frontend/build" ]; then
@@ -168,7 +182,7 @@ jobs:
             exit 1
           fi
 
-      # Upload frontend build artifacts
+      # Upload frontend build artifacts to GCS
       - name: Upload frontend build artifacts to GCS
         uses: google-github-actions/upload-cloud-storage@v2
         with:
