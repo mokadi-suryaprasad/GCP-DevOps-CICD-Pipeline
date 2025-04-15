@@ -7,7 +7,9 @@ on:
 
 env:
   VERSION: latest
-  GCR_IMAGE_PREFIX: ${{secrets.GCP_GCR_REGION }}-docker.pkg.dev/${{secrets.PROJECT_ID }}
+  FRONTEND_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/frontend-service
+  ORDER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/order-service
+  USER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/user-service
 
 jobs:
   build-test-analyze:
@@ -101,34 +103,34 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev --quiet
+          gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
       - name: Build Docker images
         run: |
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/frontend-service//frontend-service:${{ env.VERSION }} ./frontend
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/user-service/user-service:${{ env.VERSION }} ./user-service
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/order-service/order-service:${{ env.VERSION }} ./order-service
+          docker build -t ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }} ./frontend
+          docker build -t ${{ env.USER_IMAGE }}:${{ env.VERSION }} ./user-service
+          docker build -t ${{ env.ORDER_IMAGE }}:${{ env.VERSION }} ./order-service
 
       - name: Scan Docker images with Trivy - Frontend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
 
       - name: Scan Docker images with Trivy - User Service
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
+          image-ref: ${{ env.USER_IMAGE }}:${{ env.VERSION }}
 
       - name: Scan Docker images with Trivy - Order Service
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
+          image-ref: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}
 
       - name: Push Docker images to Artifact Registry
         run: |
-          docker push ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
-          docker push ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
-          docker push ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
+          docker push ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
+          docker push ${{ env.USER_IMAGE }}:${{ env.VERSION }}
+          docker push ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}
 
   upload-artifacts:
     runs-on: ubuntu-latest
@@ -162,9 +164,9 @@ jobs:
 
       - name: Update Helm values.yaml with new image tags
         run: |
-          sed -i "s|frontend.image:.*|frontend.image: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}|" helm/values.yaml
-          sed -i "s|userService.image:.*|userService.image: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}|" helm/values.yaml
-          sed -i "s|orderService.image:.*|orderService.image: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}|" helm/values.yaml
+          sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
+          sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
+          sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
 
       - name: Commit and push updated Helm chart
         run: |
@@ -177,7 +179,6 @@ jobs:
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: 'http://your-application-url.com'  # Replace with the actual URL of your running application
+          target: 'http://your-application-url.com'  # Replace with actual URL
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
-##
