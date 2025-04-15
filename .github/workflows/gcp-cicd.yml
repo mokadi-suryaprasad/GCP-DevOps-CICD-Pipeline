@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  VERSION: ${{ github.sha }}
+  VERSION: ${{ github.sha }}  # Using Git commit SHA for versioning
   FRONTEND_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/frontend-service/frontend-service
   ORDER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/order-service/order-service
   USER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/user-service/user-service
@@ -85,27 +85,6 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      # Upload frontend build artifact to GitHub Actions
-      - name: Upload frontend build as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: frontend-build
-          path: frontend/build/
-
-      # Upload Java JAR file to GitHub Actions
-      - name: Upload Java JAR file as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: user-service-jar
-          path: user-service/target/*.jar
-
-      # Upload Python service artifacts to GitHub Actions
-      - name: Upload Python service files as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: order-service-files
-          path: order-service/
-
   docker-build-scan:
     runs-on: ubuntu-latest
     needs: build-test-analyze
@@ -153,7 +132,7 @@ jobs:
           docker push ${{ env.USER_IMAGE }}:${{ env.VERSION }}
           docker push ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}
 
-  upload-artifacts:
+  deploy:
     runs-on: ubuntu-latest
     needs: docker-build-scan
     steps:
@@ -165,71 +144,31 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Download frontend build artifact
-      - name: Download frontend build artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: frontend-build
-          path: frontend/build
-
-      # Download Java JAR artifact
-      - name: Download Java JAR artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: user-service-jar
-          path: user-service/target
-
-      # Download Python service artifacts
-      - name: Download Python service artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: order-service-files
-          path: order-service/
-
-      # Check if frontend build exists after download
-      - name: Check if frontend build exists
-        run: |
-          if [ ! -d "frontend/build" ]; then
-            echo "Frontend build directory does not exist!"
-            exit 1
-          fi
-
-      # Upload frontend build artifacts to GCS
-      - name: Upload frontend build artifacts to GCS
-        uses: google-github-actions/upload-cloud-storage@v2
-        with:
-          path: 'frontend/build'
-          destination: 'gs://gcp-devops-by-surya/artifacts/frontend/${{ env.VERSION }}'
-
-      # Upload Java JAR to GCS
-      - name: Upload Java JAR to GCS
-        uses: google-github-actions/upload-cloud-storage@v2
-        with:
-          path: 'user-service/target/*.jar'
-          destination: 'gs://gcp-devops-by-surya/artifacts/user-service/${{ env.VERSION }}'
-
-      # Upload Python artifacts to GCS
-      - name: Upload Python artifacts to GCS
-        uses: google-github-actions/upload-cloud-storage@v2
-        with:
-          path: 'order-service/'
-          destination: 'gs://gcp-devops-by-surya/artifacts/order-service/${{ env.VERSION }}'
-
       - name: Update Helm values.yaml with new image tags
         run: |
           sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
           sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
           sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" helm/values.yaml
 
-      - name: Commit and push updated Helm chart
+      - name: Commit and push updated Helm chart to GitHub
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add helm/values.yaml
-          git commit -m "🔧 Update Helm chart with image tag ${{ env.VERSION }}"
+          git commit -m "🔧 Update Helm chart with new image tags: ${{ env.VERSION }}"
           git push
 
-      - name: OWASP ZAP Baseline Scan
+      - name: Sync application with ArgoCD
+        run: |
+          argocd app sync my-app --auth-token ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          argocd app wait my-app --health --timeout 300
+
+      - name: Wait for application to be ready before DAST
+        run: |
+          echo "Waiting for application to be ready..."
+          sleep 60  # Adjust if needed for app startup
+
+      - name: Run OWASP ZAP DAST Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: 'http://your-application-url.com'  # Replace with actual URL
