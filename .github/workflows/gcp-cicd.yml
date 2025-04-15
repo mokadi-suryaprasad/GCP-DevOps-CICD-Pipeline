@@ -1,182 +1,182 @@
-# name: CI/CD Pipeline
+name: CI/CD Pipeline
 
-# on:
-#   push:
-#     branches:
-#       - main
+on:
+  push:
+    branches:
+      - main
 
-# env:
-#   VERSION:  ${{ github.sha }}
-#   GCR_IMAGE_PREFIX: ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}
+env:
+  VERSION: latest
+  GCR_IMAGE_PREFIX: ${{secrets.GCP_GCR_REGION }}-docker.pkg.dev/${{secrets.PROJECT_ID }}
 
-# jobs:
-#   build-test-analyze:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout source code
-#         uses: actions/checkout@v3
+jobs:
+  build-test-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-#       - name: Set up Node.js
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: '18'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v3
-#         with:
-#           java-version: '17'
-#           distribution: 'temurin'
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-#       - name: Install SonarScanner
-#         run: |
-#           wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
-#           unzip sonar-scanner-cli-4.8.0.2856-linux.zip
-#           mv sonar-scanner-4.8.0.2856-linux sonar-scanner
-#           echo "$PWD/sonar-scanner/bin" >> $GITHUB_PATH
+      - name: Install SonarScanner
+        run: |
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
+          unzip sonar-scanner-cli-4.8.0.2856-linux.zip
+          mv sonar-scanner-4.8.0.2856-linux sonar-scanner
+          echo "$PWD/sonar-scanner/bin" >> $GITHUB_PATH
 
-#       - name: Build and test React frontend
-#         working-directory: frontend
-#         run: |
-#           npm install
-#           npm run build || true
+      - name: Build and test React frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build || true
 
-#       - name: SonarQube Scan - Frontend
-#         working-directory: frontend
-#         run: |
-#           sonar-scanner \
-#             -Dsonar.projectKey=frontend-service \
-#             -Dsonar.sources=. \
-#             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-#             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Scan - Frontend
+        working-directory: frontend
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=frontend-service \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-#       - name: Build and test Java backend
-#         working-directory: user-service
-#         run: |
-#           mvn clean test package
+      - name: Build and test Java backend
+        working-directory: user-service
+        run: |
+          mvn clean test package
 
-#       - name: SonarQube Scan - User Service
-#         working-directory: user-service
-#         run: |
-#           sonar-scanner \
-#             -Dsonar.projectKey=user-service \
-#             -Dsonar.sources=. \
-#             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-#             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Scan - User Service
+        working-directory: user-service
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=user-service \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-#       - name: Build and test Python backend
-#         working-directory: order-service
-#         run: |
-#           pip install -r requirements.txt
-#           pytest || true
+      - name: Build and test Python backend
+        working-directory: order-service
+        run: |
+          pip install -r requirements.txt
+          pytest || true
 
-#       - name: SonarQube Scan - Order Service
-#         working-directory: order-service
-#         run: |
-#           sonar-scanner \
-#             -Dsonar.projectKey=order-service \
-#             -Dsonar.sources=. \
-#             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-#             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Scan - Order Service
+        working-directory: order-service
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=order-service \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-#   docker-build-scan:
-#     runs-on: ubuntu-latest
-#     needs: build-test-analyze
-#     steps:
-#       - name: Checkout source code
-#         uses: actions/checkout@v3
+  docker-build-scan:
+    runs-on: ubuntu-latest
+    needs: build-test-analyze
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-#       - name: Decrypt GCP Service Account Key
-#         run: |
-#           echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcp-service-account.json
+      - name: Decrypt GCP Service Account Key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcp-service-account.json
 
-#       - name: Authenticate to Google Cloud
-#         uses: google-github-actions/auth@v2
-#         with:
-#           credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-#       - name: Configure Docker for Artifact Registry
-#         run: |
-#           gcloud auth configure-docker ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev --quiet
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ secrets.GCP_GCR_REGION }}-docker.pkg.dev --quiet
 
-#       - name: Build Docker images
-#         run: |
-#           docker build -t ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }} ./frontend
-#           docker build -t ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }} ./user-service
-#           docker build -t ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }} ./order-service
+      - name: Build Docker images
+        run: |
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }} ./frontend
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }} ./user-service
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }} ./order-service
 
-#       - name: Scan Docker images with Trivy - Frontend
-#         uses: aquasecurity/trivy-action@master
-#         with:
-#           image-ref: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
+      - name: Scan Docker images with Trivy - Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
 
-#       - name: Scan Docker images with Trivy - User Service
-#         uses: aquasecurity/trivy-action@master
-#         with:
-#           image-ref: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
+      - name: Scan Docker images with Trivy - User Service
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
 
-#       - name: Scan Docker images with Trivy - Order Service
-#         uses: aquasecurity/trivy-action@master
-#         with:
-#           image-ref: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
+      - name: Scan Docker images with Trivy - Order Service
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
 
-#       - name: Push Docker images to Artifact Registry
-#         run: |
-#           docker push ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
-#           docker push ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
-#           docker push ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
+      - name: Push Docker images to Artifact Registry
+        run: |
+          docker push ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}
+          docker push ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}
+          docker push ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}
 
-#   upload-artifacts:
-#     runs-on: ubuntu-latest
-#     needs: docker-build-scan
-#     steps:
-#       - name: Checkout source code
-#         uses: actions/checkout@v3
+  upload-artifacts:
+    runs-on: ubuntu-latest
+    needs: docker-build-scan
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-#       - name: Authenticate to Google Cloud
-#         uses: google-github-actions/auth@v2
-#         with:
-#           credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-#       - name: Upload frontend build artifacts to GCS
-#         uses: google-github-actions/upload-cloud-storage@v2
-#         with:
-#           path: 'frontend/build'
-#           destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/frontend/${{ env.VERSION }}'
+      - name: Upload frontend build artifacts to GCS
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: 'frontend/build'
+          destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/frontend/${{ env.VERSION }}'
 
-#       - name: Upload Java JAR to GCS
-#         uses: google-github-actions/upload-cloud-storage@v2
-#         with:
-#           path: 'user-service/target/*.jar'
-#           destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/user-service/${{ env.VERSION }}'
+      - name: Upload Java JAR to GCS
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: 'user-service/target/*.jar'
+          destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/user-service/${{ env.VERSION }}'
 
-#       - name: Upload Python artifacts to GCS
-#         uses: google-github-actions/upload-cloud-storage@v2
-#         with:
-#           path: 'order-service/'
-#           destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/order-service/${{ env.VERSION }}'
+      - name: Upload Python artifacts to GCS
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: 'order-service/'
+          destination: '${{ secrets.GCS_BUCKET_NAME }}/artifacts/order-service/${{ env.VERSION }}'
 
-#       - name: Update Helm values.yaml with new image tags
-#         run: |
-#           sed -i "s|frontend.image:.*|frontend.image: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}|" helm/values.yaml
-#           sed -i "s|userService.image:.*|userService.image: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}|" helm/values.yaml
-#           sed -i "s|orderService.image:.*|orderService.image: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}|" helm/values.yaml
+      - name: Update Helm values.yaml with new image tags
+        run: |
+          sed -i "s|frontend.image:.*|frontend.image: ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }}|" helm/values.yaml
+          sed -i "s|userService.image:.*|userService.image: ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }}|" helm/values.yaml
+          sed -i "s|orderService.image:.*|orderService.image: ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }}|" helm/values.yaml
 
-#       - name: Commit and push updated Helm chart
-#         run: |
-#           git config --global user.name "github-actions"
-#           git config --global user.email "github-actions@github.com"
-#           git add helm/values.yaml
-#           git commit -m "🔧 Update Helm chart with image tag ${{ env.VERSION }}"
-#           git push
+      - name: Commit and push updated Helm chart
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add helm/values.yaml
+          git commit -m "🔧 Update Helm chart with image tag ${{ env.VERSION }}"
+          git push
 
-#       - name: OWASP ZAP Baseline Scan
-#         uses: zaproxy/action-baseline@v0.14.0
-#         with:
-#           target: 'http://your-application-url.com'  # Replace with the actual URL of your running application
-#           token: ${{ secrets.GITHUB_TOKEN }}
-#           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://your-application-url.com'  # Replace with the actual URL of your running application
+          token: ${{ secrets.GITHUB_TOKEN }}
+          docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
