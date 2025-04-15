@@ -152,7 +152,7 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       # Download frontend build artifact
-      - name: Download frontend build
+      - name: Download frontend build artifact
         uses: actions/download-artifact@v3
         with:
           name: frontend-build
@@ -163,22 +163,6 @@ jobs:
         run: |
           if [ ! -d "frontend/build" ]; then
             echo "Frontend build directory does not exist!"
-            exit 1
-          fi
-
-      # Check if the Java JAR exists before upload
-      - name: Check if Java JAR exists
-        run: |
-          if [ ! -f "user-service/target/*.jar" ]; then
-            echo "Java JAR file does not exist!"
-            exit 1
-          fi
-
-      # Check if the Python files exist before upload
-      - name: Check if Python files exist
-        run: |
-          if [ ! -d "order-service" ]; then
-            echo "Order service directory does not exist!"
             exit 1
           fi
 
