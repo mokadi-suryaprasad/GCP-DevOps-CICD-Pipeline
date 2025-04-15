@@ -105,9 +105,9 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/frontend-service:${{ env.VERSION }} ./frontend
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/user-service:${{ env.VERSION }} ./user-service
-          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/order-service:${{ env.VERSION }} ./order-service
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/frontend-service//frontend-service:${{ env.VERSION }} ./frontend
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/user-service/user-service:${{ env.VERSION }} ./user-service
+          docker build -t ${{ env.GCR_IMAGE_PREFIX }}/order-service/order-service:${{ env.VERSION }} ./order-service
 
       - name: Scan Docker images with Trivy - Frontend
         uses: aquasecurity/trivy-action@master
