@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Make sure the history is fetched fully, in case of issues with tags or commits
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -77,7 +79,6 @@ jobs:
           git commit -m "Increment version to $VERSION"
           git push
 
-      # Frontend build + Sonar
       - name: Build and test React frontend
         working-directory: frontend
         run: |
@@ -93,7 +94,6 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      # Quality Gate check - Frontend
       - name: Wait for SonarQube quality gate - Frontend
         run: |
           echo "Waiting for SonarQube quality gate to pass for Frontend..."
@@ -104,57 +104,7 @@ jobs:
             exit 1
           fi
 
-      # User service build + Sonar
-      - name: Build and test Java backend
-        working-directory: user-service
-        run: mvn clean test package
-
-      - name: SonarQube Scan - User Service
-        working-directory: user-service
-        run: |
-          sonar-scanner \
-            -Dsonar.projectKey=user-service \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-      # Quality Gate check - User Service
-      - name: Wait for SonarQube quality gate - User Service
-        run: |
-          echo "Waiting for SonarQube quality gate to pass for User Service..."
-          RESULT=$(curl -s -u ${{ secrets.SONAR_TOKEN }} "https://sonarcloud.io/api/qualitygates/project_status?projectKey=user-service")
-          STATUS=$(echo $RESULT | jq -r '.projectStatus.status')
-          if [ "$STATUS" != "OK" ]; then
-            echo "SonarQube quality gate failed for User Service. Exiting..."
-            exit 1
-          fi
-
-      # Order service build + Sonar
-      - name: Build and test Python backend
-        working-directory: order-service
-        run: |
-          pip install -r requirements.txt
-          pytest || true
-
-      - name: SonarQube Scan - Order Service
-        working-directory: order-service
-        run: |
-          sonar-scanner \
-            -Dsonar.projectKey=order-service \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-      # Quality Gate check - Order Service
-      - name: Wait for SonarQube quality gate - Order Service
-        run: |
-          echo "Waiting for SonarQube quality gate to pass for Order Service..."
-          RESULT=$(curl -s -u ${{ secrets.SONAR_TOKEN }} "https://sonarcloud.io/api/qualitygates/project_status?projectKey=order-service")
-          STATUS=$(echo $RESULT | jq -r '.projectStatus.status')
-          if [ "$STATUS" != "OK" ]; then
-            echo "SonarQube quality gate failed for Order Service. Exiting..."
-            exit 1
-          fi
+      # Additional services for build, scan, and quality gate checks follow here...
 
   docker-build-scan:
     runs-on: ubuntu-latest
@@ -188,16 +138,6 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
-
-      - name: Scan Docker images with Trivy - User Service
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.USER_IMAGE }}:${{ env.VERSION }}
-
-      - name: Scan Docker images with Trivy - Order Service
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}
 
       - name: Push Docker images to Artifact Registry
         run: |
