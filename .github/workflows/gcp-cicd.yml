@@ -55,14 +55,27 @@ jobs:
             CURRENT_VERSION="${{ env.BASE_VERSION }}"
           fi
 
+          # Strip leading 'v'
+          CURRENT_VERSION="${CURRENT_VERSION#v}"
+
+          # Split and increment
           VERSION_PARTS=(${CURRENT_VERSION//./ })
           PATCH=${VERSION_PARTS[2]}
           NEW_PATCH=$((PATCH + 1))
+
           VERSION="v${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.${NEW_PATCH}"
 
+          # Save the new version in version.txt
           echo $VERSION > version.txt
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Commit the updated version.txt
+          git config --global user.name "Mokadi surya Prasad"
+          git config --global user.email "mspr9773@gmail.com"
+          git add version.txt
+          git commit -m "Increment version to $VERSION"
+          git push
 
       # Frontend build + Sonar
       - name: Build and test React frontend
@@ -182,10 +195,10 @@ jobs:
       - name: Commit and push updated Helm chart
         run: |
           cd helm-repo
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
+          git config --global user.name "M surya Prasad "
+          git config --global user.email "mspr9773@gmail.com"
           git add values.yaml
-          git commit -m "🔧 Update Helm chart with image tag ${{ env.VERSION }}"
+          git commit -m "Update Helm chart with image tag ${{ env.VERSION }}"
           git push
 
       - name: Wait for ArgoCD sync and app deployment
@@ -199,5 +212,3 @@ jobs:
           target: 'http://your-app-domain.com'
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
-
-
