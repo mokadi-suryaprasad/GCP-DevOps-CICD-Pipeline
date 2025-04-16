@@ -11,7 +11,7 @@ env:
   ORDER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/microservices-demo/order-service
   USER_IMAGE: asia-south1-docker.pkg.dev/silken-oxygen-454215-v6/microservices-demo/user-service
   GKE_CLUSTER_NAME: my-gke-cluster
-  GKE_CLUSTER_ZONE: us-central1-a
+  GKE_CLUSTER_ZONE: asia-south1
   GKE_PROJECT_ID: silken-oxygen-454215
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Set up environments
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -65,15 +65,12 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Commit version.txt and push
-        run: |
           git config --global user.name "Mokadi surya Prasad"
           git config --global user.email "mspr9773@gmail.com"
           git add version.txt
           git commit -m "Increment version to $VERSION" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/mokadi-suryaprasad/GCP-DevOps-CICD-Pipeline.git HEAD:main
 
-      # Frontend
       - name: Build and test React frontend
         working-directory: frontend
         run: |
@@ -86,15 +83,10 @@ jobs:
           sonar-scanner \
             -Dsonar.projectKey=frontend-service \
             -Dsonar.sources=. \
+            -Dsonar.qualitygate.wait=true \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Wait for Frontend Quality Gate
-        run: |
-          sleep 20
-          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=frontend-service"
-
-      # User Service
       - name: Build and test Java backend
         working-directory: user-service
         run: mvn clean test package
@@ -105,15 +97,10 @@ jobs:
           sonar-scanner \
             -Dsonar.projectKey=user-service \
             -Dsonar.sources=. \
+            -Dsonar.qualitygate.wait=true \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Wait for User Quality Gate
-        run: |
-          sleep 20
-          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=user-service"
-
-      # Order Service
       - name: Build and test Python backend
         working-directory: order-service
         run: |
@@ -126,13 +113,9 @@ jobs:
           sonar-scanner \
             -Dsonar.projectKey=order-service \
             -Dsonar.sources=. \
+            -Dsonar.qualitygate.wait=true \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-      - name: Wait for Order Quality Gate
-        run: |
-          sleep 20
-          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=order-service"
 
   docker-build-scan:
     runs-on: ubuntu-latest
@@ -143,12 +126,16 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
+      - name: Decrypt GCP Service Account Key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcp-service-account.json
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker
+      - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
@@ -158,12 +145,22 @@ jobs:
           docker build -t ${{ env.USER_IMAGE }}:${{ env.VERSION }} ./user-service
           docker build -t ${{ env.ORDER_IMAGE }}:${{ env.VERSION }} ./order-service
 
-      - name: Scan Docker images - Trivy
+      - name: Scan Docker images with Trivy - Frontend
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
 
-      - name: Push Docker images
+      - name: Scan Docker images with Trivy - User Service
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.USER_IMAGE }}:${{ env.VERSION }}
+
+      - name: Scan Docker images with Trivy - Order Service
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}
+
+      - name: Push Docker images to Artifact Registry
         run: |
           docker push ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
           docker push ${{ env.USER_IMAGE }}:${{ env.VERSION }}
@@ -175,32 +172,32 @@ jobs:
     env:
       VERSION: ${{ needs.build-test-analyze.outputs.version }}
     steps:
-      - name: Checkout Helm repo
+      - name: Checkout Helm chart repository
         uses: actions/checkout@v3
         with:
-          repository: mokadi-suryaprasad/your-helm-repo
+          repository: your-username/your-helm-repo
           token: ${{ secrets.GH_PAT }}
           path: helm-repo
 
-      # - name: Update Helm values.yaml
-      #   run: |
-      #     cd helm-repo
-      #     sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" values.yaml
-      #     sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" values.yaml
-      #     sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" values.yaml
-
-      # - name: Commit and push Helm chart
-      #   run: |
-      #     cd helm-repo
-      #     git config --global user.name "Mokadi surya Prasad"
-      #     git config --global user.email "mspr9773@gmail.com"
-      #     git add values.yaml
-      #     git commit -m "Update image tags to ${{ env.VERSION }}" || echo "No changes"
-      #     git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/mokadi-suryaprasad/your-helm-repo.git HEAD:main
-
-      - name: Wait for ArgoCD to sync
+      - name: Update Helm values.yaml with new image tags
         run: |
-          echo "Waiting for deployment..."
+          cd helm-repo
+          sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" values.yaml
+          sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" values.yaml
+          sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" values.yaml
+
+      - name: Commit and push updated Helm chart
+        run: |
+          cd helm-repo
+          git config --global user.name "Mokadi surya Prasad"
+          git config --global user.email "mspr9773@gmail.com"
+          git add values.yaml
+          git commit -m "Update Helm chart with image tag ${{ env.VERSION }}" || echo "No changes"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/your-username/your-helm-repo.git HEAD:main
+
+      - name: Wait for ArgoCD sync and app deployment
+        run: |
+          echo "Waiting for ArgoCD to sync and deploy changes..."
           sleep 90
 
       - name: Run OWASP ZAP DAST Scan
