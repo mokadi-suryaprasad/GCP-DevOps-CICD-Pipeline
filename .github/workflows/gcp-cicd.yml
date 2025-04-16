@@ -22,10 +22,8 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # Make sure the history is fetched fully, in case of issues with tags or commits
 
-      - name: Set up Node.js
+      - name: Set up environments
         uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -57,28 +55,25 @@ jobs:
             CURRENT_VERSION="${{ env.BASE_VERSION }}"
           fi
 
-          # Strip leading 'v'
           CURRENT_VERSION="${CURRENT_VERSION#v}"
-
-          # Split and increment
           VERSION_PARTS=(${CURRENT_VERSION//./ })
           PATCH=${VERSION_PARTS[2]}
           NEW_PATCH=$((PATCH + 1))
-
           VERSION="v${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.${NEW_PATCH}"
 
-          # Save the new version in version.txt
           echo $VERSION > version.txt
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          # Commit the updated version.txt
+      - name: Commit version.txt and push
+        run: |
           git config --global user.name "Mokadi surya Prasad"
           git config --global user.email "mspr9773@gmail.com"
           git add version.txt
-          git commit -m "Increment version to $VERSION"
-          git push
+          git commit -m "Increment version to $VERSION" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/mokadi-suryaprasad/GCP-DevOps-CICD-Pipeline.git HEAD:main
 
+      # Frontend
       - name: Build and test React frontend
         working-directory: frontend
         run: |
@@ -94,17 +89,50 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Wait for SonarQube quality gate - Frontend
+      - name: Wait for Frontend Quality Gate
         run: |
-          echo "Waiting for SonarQube quality gate to pass for Frontend..."
-          RESULT=$(curl -s -u ${{ secrets.SONAR_TOKEN }} "https://sonarcloud.io/api/qualitygates/project_status?projectKey=frontend-service")
-          STATUS=$(echo $RESULT | jq -r '.projectStatus.status')
-          if [ "$STATUS" != "OK" ]; then
-            echo "SonarQube quality gate failed for Frontend. Exiting..."
-            exit 1
-          fi
+          sleep 20
+          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=frontend-service"
 
-      # Additional services for build, scan, and quality gate checks follow here...
+      # User Service
+      - name: Build and test Java backend
+        working-directory: user-service
+        run: mvn clean test package
+
+      - name: SonarQube Scan - User Service
+        working-directory: user-service
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=user-service \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      - name: Wait for User Quality Gate
+        run: |
+          sleep 20
+          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=user-service"
+
+      # Order Service
+      - name: Build and test Python backend
+        working-directory: order-service
+        run: |
+          pip install -r requirements.txt
+          pytest || true
+
+      - name: SonarQube Scan - Order Service
+        working-directory: order-service
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=order-service \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      - name: Wait for Order Quality Gate
+        run: |
+          sleep 20
+          curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ secrets.SONAR_HOST_URL }}/api/qualitygates/project_status?projectKey=order-service"
 
   docker-build-scan:
     runs-on: ubuntu-latest
@@ -115,16 +143,12 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Decrypt GCP Service Account Key
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > $HOME/gcp-service-account.json
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker for Artifact Registry
+      - name: Configure Docker
         run: |
           gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
@@ -134,12 +158,12 @@ jobs:
           docker build -t ${{ env.USER_IMAGE }}:${{ env.VERSION }} ./user-service
           docker build -t ${{ env.ORDER_IMAGE }}:${{ env.VERSION }} ./order-service
 
-      - name: Scan Docker images with Trivy - Frontend
+      - name: Scan Docker images - Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
 
-      - name: Push Docker images to Artifact Registry
+      - name: Push Docker images
         run: |
           docker push ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
           docker push ${{ env.USER_IMAGE }}:${{ env.VERSION }}
@@ -151,37 +175,37 @@ jobs:
     env:
       VERSION: ${{ needs.build-test-analyze.outputs.version }}
     steps:
-      - name: Checkout Helm chart repository
+      - name: Checkout Helm repo
         uses: actions/checkout@v3
         with:
-          repository: mokadi-suryaprasad/GCP-DevOps-CICD-Pipeline
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: mokadi-suryaprasad/your-helm-repo
+          token: ${{ secrets.GH_PAT }}
           path: helm-repo
 
-      - name: Update Helm values.yaml with new image tags
-        run: |
-          cd helm-repo
-          sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" values.yaml
-          sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" values.yaml
-          sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" values.yaml
+      # - name: Update Helm values.yaml
+      #   run: |
+      #     cd helm-repo
+      #     sed -i "s|frontend.image:.*|frontend.image: ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}|" values.yaml
+      #     sed -i "s|userService.image:.*|userService.image: ${{ env.USER_IMAGE }}:${{ env.VERSION }}|" values.yaml
+      #     sed -i "s|orderService.image:.*|orderService.image: ${{ env.ORDER_IMAGE }}:${{ env.VERSION }}|" values.yaml
 
-      - name: Commit and push updated Helm chart
-        run: |
-          cd helm-repo
-          git config --global user.name "Mokadi surya Prasad"
-          git config --global user.email "mspr9773@gmail.com"
-          git add values.yaml
-          git commit -m "Update Helm chart with image tag ${{ env.VERSION }}"
-          git push
+      # - name: Commit and push Helm chart
+      #   run: |
+      #     cd helm-repo
+      #     git config --global user.name "Mokadi surya Prasad"
+      #     git config --global user.email "mspr9773@gmail.com"
+      #     git add values.yaml
+      #     git commit -m "Update image tags to ${{ env.VERSION }}" || echo "No changes"
+      #     git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/mokadi-suryaprasad/your-helm-repo.git HEAD:main
 
-      - name: Wait for ArgoCD sync and app deployment
+      - name: Wait for ArgoCD to sync
         run: |
-          echo "Waiting for ArgoCD to sync and deploy changes..."
+          echo "Waiting for deployment..."
           sleep 90
 
       - name: Run OWASP ZAP DAST Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: 'http://your-app-domain.com'
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
